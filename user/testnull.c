@@ -2,10 +2,15 @@
 #include "stat.h"
 #include "user.h"
 
-int main(void){
+int
+main(void)
+{
+  volatile int *p;
+  volatile int x;
+
   printf(1, "testnull: about to dereference NULL\n");
-  volatile int *p = (int*)0x0;
-  volatile int x = *p;
+  p = (int*)0x0;
+  x = *p;
   printf(1, "UNEXPECTED: read=%d\n", x);
   exit();
 }
