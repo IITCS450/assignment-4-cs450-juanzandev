@@ -177,7 +177,7 @@ switchuvm(struct proc *p)
   popcli();
 }
 
-// Load the initcode into address 0 of pgdir.
+// Load the initcode into address PGSIZE of pgdir.
 // sz must be less than a page.
 void
 inituvm(pde_t *pgdir, char *init, uint sz)
@@ -188,7 +188,7 @@ inituvm(pde_t *pgdir, char *init, uint sz)
     panic("inituvm: more than a page");
   mem = kalloc();
   memset(mem, 0, PGSIZE);
-  mappages(pgdir, 0, PGSIZE, V2P(mem), PTE_W|PTE_U);
+  mappages(pgdir, (void*)PGSIZE, PGSIZE, V2P(mem), PTE_W|PTE_U);
   memmove(mem, init, sz);
 }
 
@@ -322,7 +322,7 @@ copyuvm(pde_t *pgdir, uint sz)
 
   if((d = setupkvm()) == 0)
     return 0;
-  for(i = 0; i < sz; i += PGSIZE){
+  for(i = PGSIZE; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
@@ -341,6 +341,58 @@ copyuvm(pde_t *pgdir, uint sz)
 
 bad:
   freevm(d);
+  return 0;
+}
+
+int
+mprotect(pde_t *pgdir, void *addr, int len)
+{
+  uint a;
+  uint last;
+  pte_t *pte;
+
+  if((uint)addr < PGSIZE || (uint)addr >= KERNBASE)
+    return -1;
+  if(((uint)addr % PGSIZE) != 0 || len <= 0)
+    return -1;
+  if((uint)len > (KERNBASE - (uint)addr) / PGSIZE)
+    return -1;
+
+  last = (uint)addr + ((uint)len - 1) * PGSIZE;
+  for(a = (uint)addr; a <= last; a += PGSIZE){
+    pte = walkpgdir(pgdir, (char*)a, 0);
+    if(pte == 0 || (*pte & PTE_P) == 0 || (*pte & PTE_U) == 0)
+      return -1;
+    *pte &= ~PTE_W;
+  }
+
+  lcr3(V2P(pgdir));
+  return 0;
+}
+
+int
+munprotect(pde_t *pgdir, void *addr, int len)
+{
+  uint a;
+  uint last;
+  pte_t *pte;
+
+  if((uint)addr < PGSIZE || (uint)addr >= KERNBASE)
+    return -1;
+  if(((uint)addr % PGSIZE) != 0 || len <= 0)
+    return -1;
+  if((uint)len > (KERNBASE - (uint)addr) / PGSIZE)
+    return -1;
+
+  last = (uint)addr + ((uint)len - 1) * PGSIZE;
+  for(a = (uint)addr; a <= last; a += PGSIZE){
+    pte = walkpgdir(pgdir, (char*)a, 0);
+    if(pte == 0 || (*pte & PTE_P) == 0 || (*pte & PTE_U) == 0)
+      return -1;
+    *pte |= PTE_W;
+  }
+
+  lcr3(V2P(pgdir));
   return 0;
 }
 

@@ -116,7 +116,7 @@ entryother: entryother.S
 
 initcode: initcode.S
 	$(CC) $(CFLAGS) -nostdinc -I. -c initcode.S
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0x1000 -o initcode.out initcode.o
 	$(OBJCOPY) -S -O binary initcode.out initcode
 	$(OBJDUMP) -S initcode.o > initcode.asm
 
@@ -146,7 +146,7 @@ vectors.S: vectors.pl
 ULIB = ulib.o usys.o printf.o umalloc.o
 
 _%: %.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0x1000 -o $@ $^
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
@@ -155,6 +155,15 @@ _forktest: forktest.o $(ULIB)
 	# in order to be able to max out the proc table.
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
 	$(OBJDUMP) -S _forktest > forktest.asm
+
+testnull.o: ../user/testnull.c
+	$(CC) $(CFLAGS) -I. -c -o testnull.o ../user/testnull.c
+
+testkaccess.o: ../user/testkaccess.c
+	$(CC) $(CFLAGS) -I. -c -o testkaccess.o ../user/testkaccess.c
+
+testmprotect.o: ../user/testmprotect.c
+	$(CC) $(CFLAGS) -I. -c -o testmprotect.o ../user/testmprotect.c
 
 mkfs: mkfs.c fs.h
 	gcc -Werror -Wall -o mkfs mkfs.c
@@ -178,6 +187,9 @@ UPROGS=\
 	_rm\
 	_sh\
 	_stressfs\
+	_testkaccess\
+	_testmprotect\
+	_testnull\
 	_usertests\
 	_wc\
 	_zombie\

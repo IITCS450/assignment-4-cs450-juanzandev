@@ -39,13 +39,16 @@ exec(char *path, char **argv)
     goto bad;
 
   // Load program into memory.
-  sz = 0;
+  // Keep the first page unmapped so null dereferences fault in user mode.
+  sz = PGSIZE;
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
     if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
       continue;
     if(ph.memsz < ph.filesz)
+      goto bad;
+    if(ph.vaddr < PGSIZE)
       goto bad;
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;

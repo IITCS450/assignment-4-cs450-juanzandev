@@ -78,6 +78,24 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
+  case T_PGFLT:
+    if(myproc() == 0 || (tf->cs&3) == 0){
+      // In kernel, preserve default panic/diagnostic behavior.
+      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+              tf->trapno, cpuid(), tf->eip, rcr2());
+      panic("trap");
+    }
+
+    if(rcr2() < PGSIZE)
+      cprintf("pid %d %s: page fault at va 0x%x, eip 0x%x (likely null dereference)\n",
+              myproc()->pid, myproc()->name, rcr2(), tf->eip);
+    else
+      cprintf("pid %d %s: page fault at va 0x%x, eip 0x%x\n",
+              myproc()->pid, myproc()->name, rcr2(), tf->eip);
+
+    myproc()->killed = 1;
+    break;
+
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
